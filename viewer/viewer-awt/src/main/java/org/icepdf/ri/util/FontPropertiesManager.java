@@ -16,6 +16,7 @@
 package org.icepdf.ri.util;
 
 import org.icepdf.core.pobjects.fonts.FontManager;
+import org.icepdf.core.util.Defs;
 import org.icepdf.ri.util.font.FontCache;
 
 import java.util.Properties;
@@ -44,7 +45,27 @@ public class FontPropertiesManager {
     private static final Logger logger = Logger.getLogger(FontPropertiesManager.class.toString());
 
     // can't use system level cache on window as of JDK 1.8_14, but should work in 9.
-    private static final Preferences prefs = Preferences.userNodeForPackage(FontCache.class);
+    private static final Preferences prefs = Preferences.userNodeForPackage(getPreferencesClass());
+
+    public static final String PREFERENCES_KEY_CLASS = "org.icepdf.ri.util.FontPreferencesKey";
+
+    private static Class<?> getPreferencesClass() {
+        Object o = Defs.sysProperty(PREFERENCES_KEY_CLASS);
+        if (o != null) {
+            if (o instanceof Class) {
+                return (Class<?>) o;
+            }
+            if (o instanceof String s) {
+                try {
+                    return Class.forName(s);
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            throw new RuntimeException("class or string of classname expected, but it was " + o.getClass());
+        }
+        return FontCache.class;
+    }
 
     private static FontPropertiesManager fontPropertiesManager;
 
@@ -171,4 +192,3 @@ public class FontPropertiesManager {
         return fontManager;
     }
 }
-
