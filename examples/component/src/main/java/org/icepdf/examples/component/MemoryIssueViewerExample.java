@@ -44,7 +44,7 @@ import org.icepdf.ri.util.ViewerPropertiesManager;
  * This class started as a copy of <code>ViewerComponentExample</code>.
  */
 public class MemoryIssueViewerExample {
-
+    
     private static final int JUST_A_BIT = 50;
     private static final int LONG_TO_MAKE_MEMORY_SNAPSHOT = 1232100;
     private static JFrame APPLICATION_FRAME = new JFrame();
@@ -52,19 +52,19 @@ public class MemoryIssueViewerExample {
     private static List<PropertyChangeListener> REMAINING_LISTENERS = new ArrayList<>();
 
     public static void main(String[] args) throws IOException, InterruptedException, InvocationTargetException {
-        System.getProperties().put("org.icepdf.ri.viewer.readonly",true);
-        FontPropertiesManager.getInstance().loadOrReadSystemFonts();
+        System.setProperty(FontFactory.FONT_FACTORY_CACHE_SIZE_KEY, "3");
+        System.setProperty("org.icepdf.ri.viewer.readonly", "true");
+        loadOrReadSystemFonts();
         final String filePath = copyResourceToTmpFile("/samples/memory-leak-creating-at-icepdf-7.3.0.pdf");
         boolean checkIndivdual = false;
         if (checkIndivdual) {
-            checkDocument(filePath, true, true, false, 0);
+            checkDocument(filePath, true,  false);
         } else {
             for (int i = 0; i < 10; i++) {
-                if (!checkDocument(filePath, true, false, true, 0)) {
+                if (!checkDocument(filePath, false,  false)) {
                     System.out.println("There are still some Listeners in memory");
                     break;
                 }
-                sleep(LONG_TO_MAKE_MEMORY_SNAPSHOT);
             }
         }
 
@@ -74,6 +74,21 @@ public class MemoryIssueViewerExample {
         APPLICATION_FRAME.dispose();
         APPLICATION_FRAME = null;
         sleep(LONG_TO_MAKE_MEMORY_SNAPSHOT);
+    }
+
+    private static void loadOrReadSystemFonts() {
+        if (1==1) {
+            // new property to reduce memoryfootprint
+            System.setProperty(FILE_WHITE_LISTE_PATTERN_PROPERTY, MOST_COMMON_FONTS_PATTERN);
+            // new property to cache the font-properties in a seperated property-file
+            System.setProperty(PREFERENCES_KEY_CLASS, MemoryIssueViewerExample.class.getName());
+        }else{
+            // new property to reduce memoryfootprint
+            System.setProperty(FILE_WHITE_LISTE_PATTERN_PROPERTY, "");
+            // new property to cache the font-properties in a seperated property-file
+            System.getProperties().remove(PREFERENCES_KEY_CLASS);
+        }
+        FontPropertiesManager.getInstance().loadOrReadSystemFonts();
     }
 
     /**
@@ -100,23 +115,10 @@ public class MemoryIssueViewerExample {
     /**
      * @return true, if the KeyListeners were removed
      */
-    private static boolean checkDocument(String filePath, boolean waitThatDocumentIsLoaded, boolean useNewFontWhiteList, boolean waitForMemorySnapshot, int fontFactoryCacheSize) throws InterruptedException, InvocationTargetException {
+    private static boolean checkDocument(String filePath, boolean waitThatDocumentIsLoaded, boolean waitForMemorySnapshot) throws InterruptedException, InvocationTargetException {
         System.out.println("check file: " + filePath);
         Runnable runnable = () -> {
             CONTROLLER.setIsEmbeddedComponent(true);
-            System.getProperties().put(FontFactory.FONT_FACTORY_CACHE_SIZE_KEY, fontFactoryCacheSize);
-            if (useNewFontWhiteList) {
-                // new property to reduce memoryfootprint
-                System.getProperties().put(FILE_WHITE_LISTE_PATTERN_PROPERTY, MOST_COMMON_FONTS_PATTERN);
-                // new property to cache the font-properties in a seperated property-file
-                System.getProperties().put(PREFERENCES_KEY_CLASS, MemoryIssueViewerExample.class);
-            }else{
-                // new property to reduce memoryfootprint
-                System.getProperties().put(FILE_WHITE_LISTE_PATTERN_PROPERTY, "");
-                // new property to cache the font-properties in a seperated property-file
-                System.getProperties().remove(PREFERENCES_KEY_CLASS);
-            }
-            FontPropertiesManager.getInstance().loadOrReadSystemFonts();
 
             ViewerPropertiesManager properties = ViewerPropertiesManager.getInstance();
             properties.getPreferences().putFloat(ViewerPropertiesManager.PROPERTY_DEFAULT_ZOOM_LEVEL, 1.25f);
