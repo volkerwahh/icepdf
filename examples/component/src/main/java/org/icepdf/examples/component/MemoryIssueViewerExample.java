@@ -14,10 +14,7 @@ package org.icepdf.examples.component;
  * governing permissions and limitations under the License.
  */
 
-import static org.icepdf.core.pobjects.fonts.FontManager.FILE_WHITE_LISTE_PATTERN_PROPERTY;
-import static org.icepdf.core.pobjects.fonts.FontManager.MOST_COMMON_FONTS_PATTERN;
 import static org.icepdf.examples.component.DocumentLoadedHelper.sleep;
-import static org.icepdf.ri.util.FontPropertiesManager.PREFERENCES_KEY_CLASS;
 
 import java.awt.KeyboardFocusManager;
 import java.beans.PropertyChangeListener;
@@ -29,6 +26,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
@@ -77,17 +75,6 @@ public class MemoryIssueViewerExample {
     }
 
     private static void loadOrReadSystemFonts() {
-        if (1==1) {
-            // new property to reduce memoryfootprint
-            System.setProperty(FILE_WHITE_LISTE_PATTERN_PROPERTY, MOST_COMMON_FONTS_PATTERN);
-            // new property to cache the font-properties in a seperated property-file
-            System.setProperty(PREFERENCES_KEY_CLASS, MemoryIssueViewerExample.class.getName());
-        }else{
-            // new property to reduce memoryfootprint
-            System.setProperty(FILE_WHITE_LISTE_PATTERN_PROPERTY, "");
-            // new property to cache the font-properties in a seperated property-file
-            System.getProperties().remove(PREFERENCES_KEY_CLASS);
-        }
         FontPropertiesManager.getInstance().loadOrReadSystemFonts();
     }
 
@@ -97,7 +84,7 @@ public class MemoryIssueViewerExample {
      * @return
      */
     private static boolean findOrgIcePdfRemainings() {
-        REMAINING_LISTENERS = Arrays.stream(KeyboardFocusManager.getCurrentKeyboardFocusManager().getPropertyChangeListeners()).filter(p -> p instanceof TextWidgetComponent).toList();
+        REMAINING_LISTENERS = Arrays.stream(KeyboardFocusManager.getCurrentKeyboardFocusManager().getPropertyChangeListeners()).filter(p -> p instanceof TextWidgetComponent).collect(Collectors.toList());
         System.out.printf("Found %d keyboard focus listeners%n", REMAINING_LISTENERS.size());
         return REMAINING_LISTENERS.size() > 0;
     }
