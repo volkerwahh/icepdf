@@ -1071,4 +1071,8 @@ public class Library {
             logger.severe("ICEpdf Common Thread Pool was shutdown!");
         }
     }
+
+    public static boolean isAnActionRunning() {
+        return (commonThreadPool !=null && commonThreadPool.getActiveCount() >0) || (imageThreadPool!=null && imageThreadPool.getActiveCount()>0);
+    }
 }
