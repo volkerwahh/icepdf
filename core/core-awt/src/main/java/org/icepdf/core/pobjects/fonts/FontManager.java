@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
+import java.util.regex.Pattern;
 
 /**
  * <p>The <code>FontManager</code> class is responsible for finding available
@@ -46,8 +47,31 @@ import java.util.prefs.Preferences;
  */
 public class FontManager {
 
-    private static final Logger logger =
+    private static final Logger logger = 
             Logger.getLogger(FontManager.class.toString());
+
+    /**
+     * You can set a whitelistpattern by Setting the Systemproperty "org.icepdf.core.pobjects.fonts.fileWhiteListePattern":
+     * <dev>
+     * System.getProperties().put(FILE_WHITE_LISTE_PATTERN_PROPERTY, MOST_COMMON_FONTS_PATTERN);
+     * </dev>
+     */
+    public static final String FILE_WHITE_LISTE_PATTERN_PROPERTY =
+        "org.icepdf.core.pobjects.fonts.fileWhiteListePattern";
+
+    /**
+     * Target of this Pattern is to get some Systemfonts, but not too much, if memory is a topic. This
+     * Pattern has a positive list in the beginning as well as a negative list with the Unicode, to exclude
+     * some "huge" Unicode-Fonts.
+     * But of course this is just an example to get startet with a whiteliste.
+     */
+    public static final String MOST_COMMON_FONTS_PATTERN =
+        "(?i)^.*?(Times New Roman|arial|Courier New|Helvetica)(?!.*?Unicode).*?";
+
+    /**
+     * this is basically an all-files-are-allowed and pretty fast as it returns nearly immediately
+     */
+    static final String DEFAULT_WHITELIST_PATTERN = "";
 
     // stores all font data
     private static List<Object[]> fontList;
@@ -237,6 +261,14 @@ public class FontManager {
     // Singleton instance of class
     private static FontManager fontManager;
 
+    private final Pattern fileWhiteListPattern;
+
+    /**
+     * @VisibleForTesting
+     */
+    FontManager() {
+        fileWhiteListPattern = getFileWhiteListPattern();
+    }
 
     /**
      * <p>Returns a static instance of the FontManager class.</p>
@@ -447,7 +479,7 @@ public class FontManager {
                     if (files != null) {
                         List<String> dirPaths = new ArrayList<>();
                         for (File file : files) {
-                            if (file.isFile()) {
+                            if (isFontFileWhiteListed(file)) {
                                 // load the font.
                                 evaluateFontForInsertion(file.getAbsolutePath());
                             } else if (file.isDirectory()) {
@@ -1265,5 +1297,26 @@ public class FontManager {
      */
     private static void sortFontListByName() {
         fontList.sort((o1, o2) -> ((String) o2[0]).compareTo((String) o1[0]));
+    }
+
+    private Pattern getFileWhiteListPattern() {
+        final Pattern fileWhiteListPattern;
+        String patternString =
+            Defs.sysProperty(FILE_WHITE_LISTE_PATTERN_PROPERTY, DEFAULT_WHITELIST_PATTERN);
+        fileWhiteListPattern = Pattern.compile(patternString);
+        return fileWhiteListPattern;
+    }
+
+    /**
+     * @VisibleForTesting
+     */
+    boolean isFontFileWhiteListed(File file) {
+        if (!file.isFile()) {
+            return false;
+        }
+        if (fileWhiteListPattern.pattern().isEmpty()) {
+            return true;
+        }
+        return fileWhiteListPattern.matcher(file.getName()).matches();
     }
 }

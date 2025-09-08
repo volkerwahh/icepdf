@@ -20,11 +20,17 @@ import org.icepdf.core.pobjects.Name;
 import org.icepdf.core.pobjects.Stream;
 import org.icepdf.core.pobjects.fonts.zfont.*;
 import org.icepdf.core.pobjects.fonts.zfont.fontFiles.*;
+import org.icepdf.core.util.Defs;
 import org.icepdf.core.util.Library;
 
 import java.io.File;
 import java.io.InputStream;
+import java.io.IOException;
 import java.net.URL;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,7 +42,7 @@ import static org.icepdf.core.pobjects.Dictionary.SUBTYPE_KEY;
 public class FontFactory {
 
     private static final Logger logger =
-            Logger.getLogger(FontFactory.class.toString());
+        Logger.getLogger(FontFactory.class.toString());
 
     public static final int FONT_OPEN_TYPE = 5;
     public static final int FONT_TRUE_TYPE = java.awt.Font.TRUETYPE_FONT;
@@ -59,6 +65,10 @@ public class FontFactory {
     public static final Name FONT_SUBTYPE_TRUE_TYPE = new Name("TrueType");
     public static final Name FONT_SUBTYPE_CID_FONT_TYPE_0 = new Name("CIDFontType0");
     public static final Name FONT_SUBTYPE_CID_FONT_TYPE_2 = new Name("CIDFontType2");
+    /**
+     * Defaultvalue for this systemproperty is 0 which means no caching
+     */
+    public static final String FONT_FACTORY_CACHE_SIZE_KEY = "org.icepdf.core.pobjects.fonts.fontFactoryCacheSize";
 
     /**
      * <p>Returns a static instance of the FontManager class.</p>
@@ -73,8 +83,28 @@ public class FontFactory {
         return fontFactory;
     }
 
+    public void clear() {
+        if(localFontFileCache !=null){
+            localFontFileCache.clear();
+        }
+    }
+
+    private final Map<Object, FontFile> localFontFileCache;
 
     private FontFactory() {
+        int cacheSize = Defs.intProperty(FONT_FACTORY_CACHE_SIZE_KEY, 0);
+        if (cacheSize == 0) {
+            localFontFileCache = null;
+        } else {
+            localFontFileCache =
+                Collections.synchronizedMap(
+                    new LinkedHashMap<>(cacheSize) {
+                        @Override
+                        protected boolean removeEldestEntry(final Map.Entry eldest) {
+                            return size() >= cacheSize;
+                        }
+                    });
+        }
     }
 
     public Font getFont(Library library, DictionaryEntries entries) {
@@ -139,19 +169,44 @@ public class FontFactory {
         return null;
     }
 
+    private byte[] getFontBytes(URL url) throws IOException {
+        try (InputStream inputStream = url.openStream()) {
+            return inputStream.readAllBytes();
+        }
+    }
+
     public FontFile createFontFile(URL url, int fontType, String fontSubType) {
         FontFile fontFile = null;
-        try (InputStream inputStream = url.openStream()) {
-            byte[] fontBytes = inputStream.readAllBytes();
-            if (FONT_TRUE_TYPE == fontType || FONT_OPEN_TYPE == fontType) {
-                fontFile = new ZFontTrueType(fontBytes, url);
-            } else if (FONT_TYPE_1 == fontType) {
-                fontFile = new ZFontType1(fontBytes, url);
+        try {
+            Object key = List.of(url, fontType);
+            fontFile = getFontCacheValue(key);
+            if (fontFile == null) {
+                byte[] fontBytes = getFontBytes(url);
+                if (FONT_TRUE_TYPE == fontType || FONT_OPEN_TYPE == fontType) {
+                    fontFile = new ZFontTrueType(fontBytes, url);
+                } else if (FONT_TYPE_1 == fontType) {
+                    fontFile = new ZFontType1(fontBytes, url);
+                }
+                setFontCacheValue(key, fontFile);
             }
         } catch (Exception e) {
             logger.log(Level.FINE, e, () -> "Could not create instance of font file " + fontType);
         }
         return fontFile;
+    }
+
+    private FontFile getFontCacheValue(Object key) {
+        if (localFontFileCache == null) {
+            return null;
+        }
+        return localFontFileCache.get(key);
+    }
+
+    private void setFontCacheValue(Object key, FontFile fontFile) {
+        if (localFontFileCache == null) {
+            return;
+        }
+        localFontFileCache.put(key, fontFile);
     }
 
     private String fontTypeToString(int fontType) {

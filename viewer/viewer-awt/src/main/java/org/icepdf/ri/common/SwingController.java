@@ -22,6 +22,7 @@ import org.icepdf.core.pobjects.*;
 import org.icepdf.core.pobjects.annotations.Annotation;
 import org.icepdf.core.pobjects.annotations.MarkupAnnotation;
 import org.icepdf.core.pobjects.annotations.PopupAnnotation;
+import org.icepdf.core.pobjects.fonts.FontFactory;
 import org.icepdf.core.pobjects.security.Permissions;
 import org.icepdf.core.search.DocumentSearchController;
 import org.icepdf.core.util.*;
@@ -3151,7 +3152,8 @@ public class SwingController extends ComponentAdapter implements org.icepdf.ri.c
             viewer.validate();
             viewer.repaint();
         }
-
+        // TODO: a risk as this is not really threadsafe, but the chache should be onlu used per document, imo
+        FontFactory.getInstance().clear();
         reflectStateInComponents();
     }
 
